@@ -1,5 +1,4 @@
 const Nightmare = require('nightmare');
-const fetch = require('node-fetch');
 
 async function scpHolder(number) {
   var nightmare = Nightmare({ show: false });
