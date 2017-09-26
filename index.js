@@ -72,4 +72,4 @@ function prettyPrint(obj) {
   console.log(JSON.stringify(obj, null, 4));
 }
 
-var scp = scpHolder('1549').then(prettyPrint);
+var scp = scpHolder(process.argv.slice(-1)).then(prettyPrint);
