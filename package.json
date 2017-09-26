@@ -1,0 +1,14 @@
+{
+  "name": "scp-crawler",
+  "version": "0.0.1",
+  "description": "Crawler to scrape scp-wiki.net for the possibility of changing sites",
+  "main": "index.js",
+  "author": "JNaftali",
+  "license": "MIT",
+  "private": false,
+  "dependencies": {
+    "nightmare": "^2.10.0",
+    "node-fetch": "^1.7.3",
+    "xml-js": "^1.4.2"
+  }
+}
