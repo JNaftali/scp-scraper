@@ -11,21 +11,32 @@ async function scpHolder(number) {
     document.querySelector('#pagerate-button').innerText.slice(6, -1)
   );
 
-  var raters = (await nightmare
+  var rawraters = await nightmare
     .click('#pagerate-button')
     .wait('#action-area p a')
-    .click('#action-area p a')
-    .wait('#who-rated-page-area div')
-    .evaluate(
-      () => document.querySelector('#who-rated-page-area div').innerText
-    )
-    .catch(() => ''))
-    .split('\n')
-    .reduce((acum, row) => {
-      [k, v] = row.split(' ');
-      acum[k] = v === '+' ? true : false;
-      return acum;
-    }, {});
+    .evaluate(async function makeRatersCall() {
+      var cb;
+      var promise = new Promise(function(resolve, reject) {
+        cb = arg => resolve(arg);
+      });
+
+      var b = new Object();
+      b.pageId = WIKIREQUEST.info.pageId;
+
+      OZONE.ajax.requestModule('pagerate/WhoRatedPageModule', b, cb);
+
+      var result = await promise;
+
+      return result;
+    });
+
+  var re = /\((\d+)\);\s+return false;"\s+>([\w-\s]+)<\/a><\/span>\n\s+<span style="color:#777">\n\s+(\+|-)/gi,
+    mymatch,
+    raters = [];
+  while ((mymatch = re.exec(rawraters.body))) {
+    [_, id, name, rating] = mymatch;
+    raters.push({ id, name, rating: rating === '+' ? 1 : -1 });
+  }
 
   var discussion = await nightmare
     .click('#discuss-button')
@@ -44,6 +55,7 @@ async function scpHolder(number) {
         .evaluate(getPosts)
     );
   }
+  console.log(5);
 
   await nightmare.end();
 
@@ -63,7 +75,6 @@ async function scpHolder(number) {
       document.querySelectorAll('#thread-container-posts > .post-container')
     ).map(readPosts);
   }
-
   return { page, rating, raters, discussion };
 }
 
