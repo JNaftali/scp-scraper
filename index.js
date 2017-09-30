@@ -1,16 +1,60 @@
 const Nightmare = require('nightmare');
 
+//this is all the runner code. Rest is function definitions
+var scp = scpHolder(process.argv.slice(-1)).then(prettyPrint);
+
+//Main function. Gets a piece of the info, updates the console with a
+//progress log, and returns all the information at the end
 async function scpHolder(number) {
+  updateProgress('Instantiating Nightmare');
   var nightmare = Nightmare({ show: false });
+  var result = {};
 
-  var page = await nightmare
-    .goto('http://www.scp-wiki.net/scp-' + number)
-    .evaluate(() => document.getElementById('page-content').innerHTML);
+  updateProgress('Navigating to page');
+  await nightmare.goto('http://www.scp-wiki.net/scp-' + number);
 
-  var rating = await nightmare.evaluate(() =>
+  updateProgress('Copying page content');
+  result.page = await getCurrentPageContent(nightmare);
+
+  updateProgress('Copying page rating');
+  result.rating = await getCurrentPageRating(nightmare);
+
+  updateProgress('Loading page raters');
+  result.raters = await getCurrentPageRaters(nightmare);
+
+  updateProgress('Loading discussion posts');
+  result.discussion = await getCurrentPageDiscussions(nightmare);
+
+  updateProgress('Finishing up');
+  await nightmare.end();
+  return result;
+}
+
+function prettyPrint(obj) {
+  console.log(JSON.stringify(obj, null, 4));
+}
+
+function updateProgress(msg, cur = 0, max = 1) {
+  var stream = process.stdout;
+  var str = msg + '...';
+  stream.cursorTo(0);
+  stream.write(str);
+  stream.clearLine(1);
+}
+
+async function getCurrentPageContent(nightmare) {
+  return await nightmare.evaluate(
+    () => document.getElementById('page-content').innerHTML
+  );
+}
+
+async function getCurrentPageRating(nightmare) {
+  return await nightmare.evaluate(() =>
     document.querySelector('#pagerate-button').innerText.slice(6, -1)
   );
+}
 
+async function getCurrentPageRaters(nightmare) {
   var rawraters = await nightmare
     .click('#pagerate-button')
     .wait('#action-area p a')
@@ -38,10 +82,14 @@ async function scpHolder(number) {
     raters.push({ id, name, rating: rating === '+' ? 1 : -1 });
   }
 
+  return raters;
+}
+
+async function getCurrentPageDiscussions(nightmare) {
   var discussion = await nightmare
     .click('#discuss-button')
     .wait('#thread-container-posts')
-    .evaluate(getPosts);
+    .evaluate(getDiscussionPosts);
 
   while (
     await nightmare.evaluate(() =>
@@ -52,34 +100,26 @@ async function scpHolder(number) {
       await nightmare
         .click('#thread-container-posts .pager span:last-child a')
         .wait(500)
-        .evaluate(getPosts)
+        .evaluate(getDiscussionPosts)
     );
   }
-  console.log(5);
 
-  await nightmare.end();
+  return discussion;
+}
 
-  function getPosts() {
-    function readPosts(node) {
-      var id = node.id.slice(4);
-      var title = node.querySelector('#post-title-' + id).innerText;
-      var body = node.querySelector('#post-content-' + id).innerText.trim();
-      var author = node.querySelector('.printuser').innerText;
-      var date = node.querySelector('.odate').innerText;
+function getDiscussionPosts() {
+  function readPosts(node) {
+    var id = node.id.slice(4);
+    var title = node.querySelector('#post-title-' + id).innerText;
+    var body = node.querySelector('#post-content-' + id).innerText.trim();
+    var author = node.querySelector('.printuser').innerText;
+    var date = node.querySelector('.odate').innerText;
 
-      var children = Array.from(node.children).slice(1).map(readPosts);
-      return { id, title, author, date, body, children };
-    }
-
-    return Array.from(
-      document.querySelectorAll('#thread-container-posts > .post-container')
-    ).map(readPosts);
+    var children = Array.from(node.children).slice(1).map(readPosts);
+    return { id, title, author, date, body, children };
   }
-  return { page, rating, raters, discussion };
-}
 
-function prettyPrint(obj) {
-  console.log(JSON.stringify(obj, null, 4));
+  return Array.from(
+    document.querySelectorAll('#thread-container-posts > .post-container')
+  ).map(readPosts);
 }
-
-var scp = scpHolder(process.argv.slice(-1)).then(prettyPrint);
